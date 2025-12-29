@@ -149,3 +149,4 @@ yarn-error.log*
 # Local development
 local/
 dev/
+app-tracker.iss
