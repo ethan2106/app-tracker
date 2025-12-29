@@ -64,9 +64,7 @@ function http_get_json($url, $headers = [], $timeout = 10) {
     $response = curl_exec($ch);
     if ($response === false) {
         $error = curl_error($ch);
-        curl_close($ch);
-        error_log("cURL failed for $url: $error");
-        return null;
+                    error_log("cURL failed for $url: $error");        return null;
     }
     
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -105,7 +103,6 @@ function http_get_text($url, $headers = [], $timeout = 10) {
     $response = curl_exec($ch);
     if ($response === false) {
         $error = curl_error($ch);
-        curl_close($ch);
         error_log("cURL failed for $url: $error");
         return null;
     }
