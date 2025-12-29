@@ -1,6 +1,5 @@
 <?php
 // functions.php - Database and logic functions
-set_time_limit(30);
 // Load .env if exists
 if (file_exists(__DIR__ . '/.env')) {
     $env = parse_ini_file(__DIR__ . '/.env');
@@ -239,11 +238,13 @@ function getUpdateProviderAlias($alias) {
     return $provider_key;
 }
 
-function getLatestVersionFromProvider($provider) {
-    if (!$provider || empty($provider['latest_url']) || empty($provider['latest_regex'])) {
+function getLatestVersionFromProvider($provider, $text = null) {
+    if (!$provider || empty($provider['latest_regex'])) {
         return null;
     }
-    $text = http_get_text($provider['latest_url'], [], 15);
+    if ($text === null) {
+        $text = getProviderPageText($provider);
+    }
     if (!$text) {
         return null;
     }
@@ -259,43 +260,65 @@ function getLatestVersionFromProvider($provider) {
     return null;
 }
 
-function getLatestDownloadUrlFromProvider($provider) {
+function getLatestDownloadUrlFromProvider($provider, $text = null) {
     if (!$provider) {
         return null;
     }
-    if (!empty($provider['download_regex']) && !empty($provider['latest_url'])) {
-        $text = http_get_text($provider['latest_url'], [], 15);
-        if ($text) {
-            $matched = @preg_match($provider['download_regex'], $text, $matches);
-            if ($matched === 1) {
-                if (isset($matches[1])) {
-                    return $matches[1];
-                }
-                if (isset($matches[0])) {
-                    return $matches[0];
-                }
+    if ($text === null) {
+        $text = getProviderPageText($provider);
+    }
+    if (!empty($provider['download_regex'])) {
+        if (!$text) {
+            return $provider['download_url'] ?? null;
+        }
+        $matched = @preg_match($provider['download_regex'], $text, $matches);
+        if ($matched === 1) {
+            if (isset($matches[1])) {
+                return $matches[1];
+            }
+            if (isset($matches[0])) {
+                return $matches[0];
             }
         }
     }
     return $provider['download_url'] ?? null;
 }
 
+function getProviderPageText($provider) {
+    if (!$provider || empty($provider['latest_url'])) {
+        return null;
+    }
+    return http_get_text($provider['latest_url'], [], 15);
+}
+
 function getLatestGithubDownloadUrl($source) {
     list($owner, $repo) = explode('/', $source, 2);
+    $fallback = "https://github.com/$owner/$repo/releases/latest";
     $data = http_get_json("https://api.github.com/repos/$owner/$repo/releases/latest", ['Accept: application/vnd.github.v3+json']);
-    if ($data) {
-        if (!empty($data['assets']) && is_array($data['assets'])) {
-            foreach ($data['assets'] as $asset) {
-                if (!empty($asset['browser_download_url'])) {
-                    return $asset['browser_download_url'];
-                }
+    if (!$data) {
+        return $fallback;
+    }
+    $assets = $data['assets'] ?? [];
+    $preferred = ['msi', 'exe', 'zip'];
+    foreach ($preferred as $ext) {
+        foreach ($assets as $asset) {
+            $name = strtolower($asset['name'] ?? '');
+            $url = $asset['browser_download_url'] ?? null;
+            if (!$url || !$name) {
+                continue;
+            }
+            if (preg_match('/\.(sig|sha256|sha256sum|asc|txt)$/i', $name)) {
+                continue;
+            }
+            if (preg_match('/\.' . preg_quote($ext, '/') . '$/i', $name)) {
+                return $url;
             }
         }
-        if (!empty($data['html_url'])) {
-            return $data['html_url'];
-        }
     }
-    return "https://github.com/$owner/$repo/releases/latest";
+    if (!empty($data['html_url'])) {
+        return $data['html_url'];
+    }
+    return $fallback;
 }
 
 // Function to get download URL for an app source
@@ -305,13 +328,10 @@ function getDownloadUrl($source) {
         return null;
     }
     if (strpos($source, '/') !== false) {
-        // GitHub repo: owner/repo
-        list($owner, $repo) = explode('/', $source, 2);
-        return "https://github.com/$owner/$repo/releases/latest";
-    } else {
-        $provider = getUpdateProvider($source);
-        return $provider['download_url'] ?? null;
+        return getLatestGithubDownloadUrl($source);
     }
+    $provider = getUpdateProvider($source);
+    return $provider['download_url'] ?? null;
 }
 
 function getDownloadUrlForApp($app) {
@@ -394,7 +414,8 @@ function getLatestVersion($source) {
         return null;
     }
     $provider = getUpdateProvider($source);
-    return getLatestVersionFromProvider($provider);
+    $provider_text = getProviderPageText($provider);
+    return getLatestVersionFromProvider($provider, $provider_text);
 }
 
 // Function to check for updates
@@ -429,7 +450,8 @@ function checkForUpdates($id, $force = false) {
             $latest_download_url = getLatestGithubDownloadUrl($source);
         } else {
             $provider = getUpdateProvider($source);
-            $latest_download_url = getLatestDownloadUrlFromProvider($provider);
+            $provider_text = getProviderPageText($provider);
+            $latest_download_url = getLatestDownloadUrlFromProvider($provider, $provider_text);
         }
         $stmt = $pdo->prepare("UPDATE apps SET latest_version = ?, latest_version_norm = ?, update_available = ?, latest_download_url = ?, last_checked = NOW(), last_error = NULL WHERE id = ?");
         $stmt->execute([$latest_raw, $latest_norm, $update_available, $latest_download_url, $id]);

@@ -40,6 +40,7 @@ switch ($page) {
         include 'templates/edit_app.php';
         break;
     case 'check_all':
+        set_time_limit(30);
         $apps = getApps();
         $checked = 0;
         foreach ($apps as $app) {
