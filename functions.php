@@ -155,15 +155,43 @@ function isUpdateAvailable($installed, $latest) {
 
 // Function to validate update_source
 function is_valid_update_source($source) {
+    if (!$source) {
+        return false;
+    }
     $allowed = ['mozilla', 'nodejs', 'python', '7zip', 'vlc', 'git'];
-    if (in_array($source, $allowed)) {
+    if (in_array($source, $allowed, true)) {
         return true;
     }
     // Check for GitHub repo: owner/repo
-    if (preg_match('/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/', $source)) {
-        return true;
+    return (bool)preg_match('/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/i', $source);
+}
+
+function normalize_update_source($source) {
+    if ($source === null) {
+        return null;
     }
-    return false;
+    $source = trim($source);
+    if ($source === '') {
+        return null;
+    }
+    $source_lower = strtolower($source);
+    if (preg_match('~github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)~i', $source, $matches)) {
+        return strtolower($matches[1] . '/' . $matches[2]);
+    }
+    $aliases = [
+        '7-zip' => '7zip',
+        '7 zip' => '7zip',
+        'bcuninstaller' => 'klocman/bulk-crap-uninstaller',
+        'bcu' => 'klocman/bulk-crap-uninstaller',
+        'bulk crap uninstaller' => 'klocman/bulk-crap-uninstaller',
+        'bulk-crap-uninstaller' => 'klocman/bulk-crap-uninstaller',
+        'vlc media player' => 'vlc',
+        'git for windows' => 'git',
+    ];
+    if (isset($aliases[$source_lower])) {
+        return $aliases[$source_lower];
+    }
+    return $source_lower;
 }
 
 function getLatestVersionCustom($url, $regex) {
@@ -188,6 +216,10 @@ function getLatestVersionCustom($url, $regex) {
 
 // Function to get download URL for an app source
 function getDownloadUrl($source) {
+    $source = normalize_update_source($source);
+    if (!$source) {
+        return null;
+    }
     if (strpos($source, '/') !== false) {
         // GitHub repo: owner/repo
         list($owner, $repo) = explode('/', $source, 2);
@@ -244,6 +276,7 @@ function getApp($id) {
 // Function to add an app
 function addApp($name, $version, $update_source = null, $update_type = null, $update_url = null, $update_regex = null) {
     global $pdo;
+    $update_source = normalize_update_source($update_source);
     $stmt = $pdo->prepare("INSERT INTO apps (name, version, update_source, update_type, update_url, update_regex) VALUES (?, ?, ?, ?, ?, ?)");
     return $stmt->execute([$name, $version, $update_source, $update_type, $update_url, $update_regex]);
 }
@@ -251,6 +284,7 @@ function addApp($name, $version, $update_source = null, $update_type = null, $up
 // Function to update an app
 function updateApp($id, $name, $version, $update_source = null, $update_type = null, $update_url = null, $update_regex = null) {
     global $pdo;
+    $update_source = normalize_update_source($update_source);
     $stmt = $pdo->prepare("UPDATE apps SET name = ?, version = ?, update_source = ?, update_type = ?, update_url = ?, update_regex = ? WHERE id = ?");
     return $stmt->execute([$name, $version, $update_source, $update_type, $update_url, $update_regex, $id]);
 }
@@ -264,8 +298,9 @@ function deleteApp($id) {
 
 // Function to get latest version from source
 function getLatestVersion($source) {
+    $source = normalize_update_source($source);
     if (!is_valid_update_source($source)) {
-        error_log("Invalid update source: $source");
+        error_log("Invalid update source: " . ($source ?? 'null'));
         return null;
     }
     
@@ -381,9 +416,10 @@ function checkForUpdates($id, $force = false) {
         }
     }
     
+    $source = normalize_update_source($app['update_source'] ?? null);
     $latest_raw = $is_custom
         ? getLatestVersionCustom($app['update_url'], $app['update_regex'])
-        : getLatestVersion($app['update_source']);
+        : getLatestVersion($source);
     if ($latest_raw) {
         $latest_norm = normalize_version($latest_raw);
         $update_check = isUpdateAvailable($app['version'], $latest_raw);
