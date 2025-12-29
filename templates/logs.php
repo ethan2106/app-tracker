@@ -3,17 +3,11 @@
 $apps = getAppsWithErrors();
 $message = $_SESSION['message'] ?? '';
 unset($_SESSION['message']);
+$page_title = 'Logs d\'Erreurs de Vérification';
+ob_start();
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>App Tracker - Logs d'Erreurs</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
     <div class="container">
-        <h1>Logs d'Erreurs de Vérification</h1>
+        
         <?php if ($message): ?>
             <p class="message"><?php echo htmlspecialchars($message); ?></p>
         <?php endif; ?>
@@ -51,5 +45,7 @@ unset($_SESSION['message']);
             </table>
         <?php endif; ?>
     </div>
-</body>
-</html>
+<?php
+$page_content = ob_get_clean();
+include __DIR__ . '/layout.php';
+?>

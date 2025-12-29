@@ -9,6 +9,31 @@ body {
     min-height: 100vh;
 }
 
+.site-header {
+    margin: 0 auto 20px;
+    max-width: 1400px;
+    background: #2c3e50;
+    color: #ecf0f1;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.site-header__inner {
+    padding: 24px 20px;
+    text-align: center;
+}
+
+.site-brand {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.site-brand .logo {
+    color: #3498db;
+    font-weight: 700;
+}
+
 .container {
     max-width: 1400px;
     margin: 0 auto;
@@ -319,4 +344,37 @@ tr:hover {
         margin: 10px;
         padding: 15px;
     }
+}
+
+.site-footer {
+    margin: 20px auto 0;
+    max-width: 1400px;
+    text-align: center;
+    color: #ecf0f1;
+    font-size: 13px;
+    background: #2c3e50;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    padding: 10px;
+}
+
+.site-footer__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    justify-content: center;
+}
+
+.site-footer a {
+    color: #ecf0f1;
+    text-decoration: underline;
+}
+
+.footer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
 }

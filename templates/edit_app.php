@@ -1,5 +1,6 @@
 <?php
 // templates/edit_app.php
+$page_title = 'Modifier une Application';
 $id = $_GET['id'] ?? 0;
 $app = getApp($id);
 if (!$app) {
@@ -29,17 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 }
+$page_title = 'App Tracker - Modifier une App';
+ob_start();
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>App Tracker - Modifier une App</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
     <div class="container">
-        <h1>Modifier l'Application</h1>
+        
         <form method="post" class="form">
             <?php echo csrf_field(); ?>
             <div class="form-group">
@@ -73,5 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
         <a href="?page=list" class="btn btn-secondary">Retour à la liste</a>
     </div>
-</body>
-</html>
+<?php
+$page_content = ob_get_clean();
+include __DIR__ . '/layout.php';
+?>

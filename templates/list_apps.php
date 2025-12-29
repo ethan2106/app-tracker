@@ -3,17 +3,11 @@
 $apps = getApps();
 $message = $_SESSION['message'] ?? '';
 unset($_SESSION['message']);
+$page_title = 'Liste des Applications Windows';
+ob_start();
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>App Tracker - Liste des Apps</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
     <div class="container">
-        <h1>Liste des Applications Windows</h1>
+        
         <?php if ($message): ?>
             <p class="message"><?php echo htmlspecialchars($message); ?></p>
         <?php endif; ?>
@@ -82,5 +76,7 @@ unset($_SESSION['message']);
             </tbody>
         </table>
     </div>
-</body>
-</html>
+<?php
+$page_content = ob_get_clean();
+include __DIR__ . '/layout.php';
+?>
