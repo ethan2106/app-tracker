@@ -8,6 +8,11 @@ if (!$app) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verify_csrf()) {
+        $_SESSION['message'] = 'Jeton CSRF invalide.';
+        header('Location: ?page=list');
+        exit;
+    }
     $name = $_POST['name'] ?? '';
     $version = $_POST['version'] ?? '';
     $update_source = $_POST['update_source'] ?? null;
@@ -29,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container">
         <h1>Modifier l'Application</h1>
         <form method="post" class="form">
+            <?php echo csrf_field(); ?>
             <div class="form-group">
                 <label for="name">Nom:</label>
                 <input type="text" id="name" name="name" value="<?php echo htmlspecialchars($app['name']); ?>" required>

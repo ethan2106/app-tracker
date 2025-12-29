@@ -11,6 +11,37 @@ if (file_exists(__DIR__ . '/.env')) {
 
 global $pdo;
 
+function csrf_token() {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return '';
+    }
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function csrf_field() {
+    $token = csrf_token();
+    if ($token === '') {
+        return '';
+    }
+    return '<input type="hidden" name="csrf_token" value="' .
+        htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '">';
+}
+
+function verify_csrf() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return true;
+    }
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return false;
+    }
+    $token = $_POST['csrf_token'] ?? '';
+    $stored = $_SESSION['csrf_token'] ?? '';
+    return $token && $stored && hash_equals($stored, $token);
+}
+
 // Helper function for HTTP GET with JSON
 function http_get_json($url, $headers = [], $timeout = 10) {
     $ch = curl_init();
@@ -116,6 +147,9 @@ function isUpdateAvailable($installed, $latest) {
     if (!$installed || !$latest) return null;
     $installed_norm = normalize_version($installed);
     $latest_norm = normalize_version($latest);
+    if (!$installed_norm || !$latest_norm) {
+        return null;
+    }
     return version_compare($installed_norm, $latest_norm, '<');
 }
 
@@ -322,10 +356,11 @@ function checkForUpdates($id, $force = false) {
     $latest_raw = getLatestVersion($app['update_source']);
     if ($latest_raw) {
         $latest_norm = normalize_version($latest_raw);
-        $update_available = isUpdateAvailable($app['version'], $latest_raw) ? 1 : 0;
+        $update_check = isUpdateAvailable($app['version'], $latest_raw);
+        $update_available = is_bool($update_check) ? ($update_check ? 1 : 0) : null;
         $stmt = $pdo->prepare("UPDATE apps SET latest_version = ?, latest_version_norm = ?, update_available = ?, last_checked = NOW(), last_error = NULL WHERE id = ?");
         $stmt->execute([$latest_raw, $latest_norm, $update_available, $id]);
-        $status = $update_available ? "MAJ disponible" : "À jour";
+        $status = $update_available === 1 ? "MAJ disponible" : ($update_available === 0 ? "À jour" : "Inconnu");
         return "Dernière version trouvée : $latest_raw ($status)";
     } else {
         $error_msg = "Impossible de récupérer la dernière version.";

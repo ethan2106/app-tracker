@@ -73,6 +73,7 @@ unset($_SESSION['message']);
                         <a href="?page=edit&id=<?php echo $app['id']; ?>" class="btn btn-edit">Modifier</a>
                         <a href="?page=check&id=<?php echo $app['id']; ?>" class="btn btn-check">Vérifier MAJ</a>
                         <form method="post" action="?page=delete&id=<?php echo $app['id']; ?>" style="display:inline;">
+                            <?php echo csrf_field(); ?>
                             <button type="submit" class="btn btn-delete">Supprimer</button>
                         </form>
                     </td>

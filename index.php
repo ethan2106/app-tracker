@@ -8,6 +8,11 @@ session_start();
 
 // Handle POST actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['page'])) {
+    if (!verify_csrf()) {
+        $_SESSION['message'] = 'Jeton CSRF invalide.';
+        header('Location: ?page=list');
+        exit;
+    }
     $page = $_GET['page'];
     $id = $_GET['id'] ?? 0;
     if ($page === 'delete' && $id) {
@@ -19,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['page'])) {
 
 // Simple routing
 $page = $_GET['page'] ?? 'list';
+$id = $_GET['id'] ?? 0;
 
 switch ($page) {
     case 'list':
@@ -43,6 +49,14 @@ switch ($page) {
             }
         }
         $_SESSION['message'] = "Vérifications terminées : $checked app(s) vérifiée(s) sur " . count($apps) . ".";
+        header('Location: ?page=list');
+        exit;
+        break;
+    case 'check':
+        if ($id) {
+            $result = checkForUpdates($id, true);
+            $_SESSION['message'] = $result;
+        }
         header('Location: ?page=list');
         exit;
         break;
