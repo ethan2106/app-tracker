@@ -46,7 +46,7 @@ unset($_SESSION['message']);
                     <td><?php echo htmlspecialchars($app['latest_version'] ?? 'N/A'); ?></td>
                     <td>
                         <?php 
-                        $downloadUrl = getDownloadUrl($app['update_source']);
+                        $downloadUrl = getDownloadUrlForApp($app);
                         $downloadClass = $needsUpdate === 1 ? 'btn-download btn-download-update' : 'btn-download';
                         if ($downloadUrl): ?>
                             <a href="<?php echo htmlspecialchars($downloadUrl); ?>" target="_blank" rel="noopener noreferrer" class="<?php echo $downloadClass; ?>" title="Télécharger la dernière version">📥</a>

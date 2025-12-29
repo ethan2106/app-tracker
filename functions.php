@@ -166,6 +166,26 @@ function is_valid_update_source($source) {
     return false;
 }
 
+function getLatestVersionCustom($url, $regex) {
+    if (!$url || !$regex) {
+        return null;
+    }
+    $text = http_get_text($url, [], 15);
+    if (!$text) {
+        return null;
+    }
+    $matched = @preg_match($regex, $text, $matches);
+    if ($matched === 1) {
+        if (isset($matches[1])) {
+            return $matches[1];
+        }
+        if (isset($matches[0])) {
+            return $matches[0];
+        }
+    }
+    return null;
+}
+
 // Function to get download URL for an app source
 function getDownloadUrl($source) {
     if (strpos($source, '/') !== false) {
@@ -192,6 +212,13 @@ function getDownloadUrl($source) {
     }
 }
 
+function getDownloadUrlForApp($app) {
+    if (!empty($app['update_url'])) {
+        return $app['update_url'];
+    }
+    return getDownloadUrl($app['update_source']);
+}
+
 // Function to get all apps
 function getApps() {
     global $pdo;
@@ -215,17 +242,17 @@ function getApp($id) {
 }
 
 // Function to add an app
-function addApp($name, $version, $update_source = null) {
+function addApp($name, $version, $update_source = null, $update_type = null, $update_url = null, $update_regex = null) {
     global $pdo;
-    $stmt = $pdo->prepare("INSERT INTO apps (name, version, update_source) VALUES (?, ?, ?)");
-    return $stmt->execute([$name, $version, $update_source]);
+    $stmt = $pdo->prepare("INSERT INTO apps (name, version, update_source, update_type, update_url, update_regex) VALUES (?, ?, ?, ?, ?, ?)");
+    return $stmt->execute([$name, $version, $update_source, $update_type, $update_url, $update_regex]);
 }
 
 // Function to update an app
-function updateApp($id, $name, $version, $update_source = null) {
+function updateApp($id, $name, $version, $update_source = null, $update_type = null, $update_url = null, $update_regex = null) {
     global $pdo;
-    $stmt = $pdo->prepare("UPDATE apps SET name = ?, version = ?, update_source = ? WHERE id = ?");
-    return $stmt->execute([$name, $version, $update_source, $id]);
+    $stmt = $pdo->prepare("UPDATE apps SET name = ?, version = ?, update_source = ?, update_type = ?, update_url = ?, update_regex = ? WHERE id = ?");
+    return $stmt->execute([$name, $version, $update_source, $update_type, $update_url, $update_regex, $id]);
 }
 
 // Function to delete an app
@@ -341,7 +368,8 @@ function getLatestVersion($source) {
 function checkForUpdates($id, $force = false) {
     global $pdo;
     $app = getApp($id);
-    if (!$app || !$app['update_source']) {
+    $is_custom = $app && (($app['update_type'] ?? null) === 'custom' || (!empty($app['update_url']) && !empty($app['update_regex'])));
+    if (!$app || (!$is_custom && !$app['update_source'])) {
         return "Source de mise à jour non configurée pour cette app.";
     }
     
@@ -353,7 +381,9 @@ function checkForUpdates($id, $force = false) {
         }
     }
     
-    $latest_raw = getLatestVersion($app['update_source']);
+    $latest_raw = $is_custom
+        ? getLatestVersionCustom($app['update_url'], $app['update_regex'])
+        : getLatestVersion($app['update_source']);
     if ($latest_raw) {
         $latest_norm = normalize_version($latest_raw);
         $update_check = isUpdateAvailable($app['version'], $latest_raw);
