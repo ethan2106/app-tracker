@@ -11,7 +11,8 @@ $page_content = $page_content ?? '';
     <title><?php echo htmlspecialchars($page_title); ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body>
+<body>    
+    <?php include __DIR__ . '/header.php'; ?>
     <?php echo $page_content; ?>
     <?php include __DIR__ . '/footer.php'; ?>
 </body>
