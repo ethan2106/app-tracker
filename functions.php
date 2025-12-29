@@ -1,6 +1,6 @@
 <?php
 // functions.php - Database and logic functions
-
+set_time_limit(30);
 // Load .env if exists
 if (file_exists(__DIR__ . '/.env')) {
     $env = parse_ini_file(__DIR__ . '/.env');
@@ -158,12 +158,11 @@ function is_valid_update_source($source) {
     if (!$source) {
         return false;
     }
-    $allowed = ['mozilla', 'nodejs', 'python', '7zip', 'vlc', 'git'];
-    if (in_array($source, $allowed, true)) {
+    // Check for GitHub repo: owner/repo
+    if (preg_match('/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/i', $source)) {
         return true;
     }
-    // Check for GitHub repo: owner/repo
-    return (bool)preg_match('/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/i', $source);
+    return getUpdateProvider($source) !== null;
 }
 
 function normalize_update_source($source) {
@@ -178,18 +177,9 @@ function normalize_update_source($source) {
     if (preg_match('~github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)~i', $source, $matches)) {
         return strtolower($matches[1] . '/' . $matches[2]);
     }
-    $aliases = [
-        '7-zip' => '7zip',
-        '7 zip' => '7zip',
-        'bcuninstaller' => 'klocman/bulk-crap-uninstaller',
-        'bcu' => 'klocman/bulk-crap-uninstaller',
-        'bulk crap uninstaller' => 'klocman/bulk-crap-uninstaller',
-        'bulk-crap-uninstaller' => 'klocman/bulk-crap-uninstaller',
-        'vlc media player' => 'vlc',
-        'git for windows' => 'git',
-    ];
-    if (isset($aliases[$source_lower])) {
-        return $aliases[$source_lower];
+    $alias_provider = getUpdateProviderAlias($source_lower);
+    if ($alias_provider) {
+        return $alias_provider;
     }
     return $source_lower;
 }
@@ -214,6 +204,100 @@ function getLatestVersionCustom($url, $regex) {
     return null;
 }
 
+function getUpdateProvider($provider_key) {
+    global $pdo;
+    static $cache = [];
+    if (!$provider_key) {
+        return null;
+    }
+    $provider_key = strtolower(trim($provider_key));
+    if (array_key_exists($provider_key, $cache)) {
+        return $cache[$provider_key];
+    }
+    $stmt = $pdo->prepare("SELECT * FROM update_providers WHERE provider_key = ?");
+    $stmt->execute([$provider_key]);
+    $provider = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $cache[$provider_key] = $provider;
+    return $provider;
+}
+
+function getUpdateProviderAlias($alias) {
+    global $pdo;
+    static $cache = [];
+    if (!$alias) {
+        return null;
+    }
+    $alias = strtolower(trim($alias));
+    if (array_key_exists($alias, $cache)) {
+        return $cache[$alias];
+    }
+    $stmt = $pdo->prepare("SELECT provider_key FROM update_provider_aliases WHERE alias = ?");
+    $stmt->execute([$alias]);
+    $provider_key = $stmt->fetchColumn();
+    $provider_key = $provider_key ? strtolower($provider_key) : null;
+    $cache[$alias] = $provider_key;
+    return $provider_key;
+}
+
+function getLatestVersionFromProvider($provider) {
+    if (!$provider || empty($provider['latest_url']) || empty($provider['latest_regex'])) {
+        return null;
+    }
+    $text = http_get_text($provider['latest_url'], [], 15);
+    if (!$text) {
+        return null;
+    }
+    $matched = @preg_match($provider['latest_regex'], $text, $matches);
+    if ($matched === 1) {
+        if (isset($matches[1])) {
+            return $matches[1];
+        }
+        if (isset($matches[0])) {
+            return $matches[0];
+        }
+    }
+    return null;
+}
+
+function getLatestDownloadUrlFromProvider($provider) {
+    if (!$provider) {
+        return null;
+    }
+    if (!empty($provider['download_regex']) && !empty($provider['latest_url'])) {
+        $text = http_get_text($provider['latest_url'], [], 15);
+        if ($text) {
+            $matched = @preg_match($provider['download_regex'], $text, $matches);
+            if ($matched === 1) {
+                if (isset($matches[1])) {
+                    return $matches[1];
+                }
+                if (isset($matches[0])) {
+                    return $matches[0];
+                }
+            }
+        }
+    }
+    return $provider['download_url'] ?? null;
+}
+
+function getLatestGithubDownloadUrl($source) {
+    list($owner, $repo) = explode('/', $source, 2);
+    $data = http_get_json("https://api.github.com/repos/$owner/$repo/releases/latest", ['Accept: application/vnd.github.v3+json']);
+    if ($data) {
+        if (!empty($data['assets']) && is_array($data['assets'])) {
+            foreach ($data['assets'] as $asset) {
+                if (!empty($asset['browser_download_url'])) {
+                    return $asset['browser_download_url'];
+                }
+            }
+        }
+        if (!empty($data['html_url'])) {
+            return $data['html_url'];
+        }
+    }
+    return "https://github.com/$owner/$repo/releases/latest";
+}
+
 // Function to get download URL for an app source
 function getDownloadUrl($source) {
     $source = normalize_update_source($source);
@@ -225,26 +309,15 @@ function getDownloadUrl($source) {
         list($owner, $repo) = explode('/', $source, 2);
         return "https://github.com/$owner/$repo/releases/latest";
     } else {
-        switch ($source) {
-            case 'mozilla':
-                return 'https://www.mozilla.org/firefox/download/';
-            case 'nodejs':
-                return 'https://nodejs.org/';
-            case 'python':
-                return 'https://www.python.org/downloads/';
-            case '7zip':
-                return 'https://www.7-zip.org/download.html';
-            case 'vlc':
-                return 'https://www.videolan.org/vlc/download-windows.html';
-            case 'git':
-                return 'https://gitforwindows.org/';
-            default:
-                return null;
-        }
+        $provider = getUpdateProvider($source);
+        return $provider['download_url'] ?? null;
     }
 }
 
 function getDownloadUrlForApp($app) {
+    if (!empty($app['latest_download_url'])) {
+        return $app['latest_download_url'];
+    }
     if (!empty($app['update_url'])) {
         return $app['update_url'];
     }
@@ -318,85 +391,10 @@ function getLatestVersion($source) {
         if ($data && isset($data[0]['name'])) {
             return $data[0]['name'];
         }
-    } else {
-        switch ($source) {
-            case 'mozilla':
-                $data = http_get_json('https://product-details.mozilla.org/1.0/firefox_versions.json');
-                if ($data && isset($data['LATEST_FIREFOX_VERSION'])) {
-                    return $data['LATEST_FIREFOX_VERSION'];
-                }
-                break;
-            case 'nodejs':
-                $data = http_get_json('https://nodejs.org/dist/index.json');
-                if ($data) {
-                    $lts_versions = array_filter($data, function($v) {
-                        return isset($v['lts']) && $v['lts'] !== false;
-                    });
-                    if (!empty($lts_versions)) {
-                        // Get latest LTS by date
-                        usort($lts_versions, function($a, $b) {
-                            return strtotime($b['date']) - strtotime($a['date']);
-                        });
-                        return $lts_versions[0]['version'];
-                    }
-                }
-                break;
-            case 'python':
-                $data = http_get_json('https://www.python.org/api/v2/downloads/release/?is_published=yes&is_prerelease=false');
-                if ($data) {
-                    $latest = null;
-                    $latest_date = 0;
-                    foreach ($data as $release) {
-                        $name = $release['name'];
-                        if (preg_match('/[abc]\d*$/', $name)) continue; // Skip pre-releases
-                        $release_date = strtotime($release['release_date']);
-                        if ($release_date > $latest_date) {
-                            $latest = $name;
-                            $latest_date = $release_date;
-                        }
-                    }
-                    return $latest;
-                }
-                break;
-            case '7zip':
-                $html = file_get_contents('https://www.7-zip.org/', false, stream_context_create(['http' => ['timeout' => 10, 'user_agent' => 'App-Tracker/1.0']]));
-                if ($html && preg_match('/Download 7-Zip (\d+\.\d+)/', $html, $matches)) {
-                    return $matches[1];
-                }
-                break;
-            case 'vlc':
-                // Scrape download page first (most reliable for stable versions)
-                $html = http_get_text('https://www.videolan.org/vlc/download-windows.html', [], 15);
-                if ($html && preg_match('/vlc-([\d\.]+)-win32\.exe/', $html, $matches)) {
-                    return $matches[1];
-                }
-                // Fallback to GitHub releases
-                $data = http_get_json('https://api.github.com/repos/videolan/vlc/releases/latest', ['Accept: application/vnd.github.v3+json']);
-                if ($data && isset($data['tag_name'])) {
-                    return $data['tag_name'];
-                }
-                // Last fallback to tags (filter out non-version tags)
-                $data = http_get_json('https://api.github.com/repos/videolan/vlc/tags', ['Accept: application/vnd.github.v3+json']);
-                if ($data) {
-                    foreach ($data as $tag) {
-                        $name = $tag['name'];
-                        // Skip non-version tags like 'svn-trunk', 'master', etc.
-                        if (preg_match('/^\d+\.\d+/', $name)) {
-                            return $name;
-                        }
-                    }
-                }
-                break;
-            case 'git':
-                // Use Git for Windows releases
-                $data = http_get_json('https://api.github.com/repos/git-for-windows/git/releases/latest', ['Accept: application/vnd.github.v3+json']);
-                if ($data && isset($data['tag_name'])) {
-                    return $data['tag_name'];
-                }
-                break;
-        }
+        return null;
     }
-    return null;
+    $provider = getUpdateProvider($source);
+    return getLatestVersionFromProvider($provider);
 }
 
 // Function to check for updates
@@ -424,8 +422,17 @@ function checkForUpdates($id, $force = false) {
         $latest_norm = normalize_version($latest_raw);
         $update_check = isUpdateAvailable($app['version'], $latest_raw);
         $update_available = is_bool($update_check) ? ($update_check ? 1 : 0) : null;
-        $stmt = $pdo->prepare("UPDATE apps SET latest_version = ?, latest_version_norm = ?, update_available = ?, last_checked = NOW(), last_error = NULL WHERE id = ?");
-        $stmt->execute([$latest_raw, $latest_norm, $update_available, $id]);
+        $latest_download_url = null;
+        if ($is_custom && !empty($app['update_url'])) {
+            $latest_download_url = $app['update_url'];
+        } elseif (strpos($source, '/') !== false) {
+            $latest_download_url = getLatestGithubDownloadUrl($source);
+        } else {
+            $provider = getUpdateProvider($source);
+            $latest_download_url = getLatestDownloadUrlFromProvider($provider);
+        }
+        $stmt = $pdo->prepare("UPDATE apps SET latest_version = ?, latest_version_norm = ?, update_available = ?, latest_download_url = ?, last_checked = NOW(), last_error = NULL WHERE id = ?");
+        $stmt->execute([$latest_raw, $latest_norm, $update_available, $latest_download_url, $id]);
         $status = $update_available === 1 ? "MAJ disponible" : ($update_available === 0 ? "À jour" : "Inconnu");
         return "Dernière version trouvée : $latest_raw ($status)";
     } else {
