@@ -7,7 +7,6 @@ $page_title = 'Liste des Applications Windows';
 ob_start();
 ?>
     <div class="container">
-        
         <?php if ($message): ?>
             <p class="message"><?php echo htmlspecialchars($message); ?></p>
         <?php endif; ?>
