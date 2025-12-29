@@ -1,6 +1,7 @@
 <?php
 // templates/layout.php
 $page_title = $page_title ?? 'App Tracker';
+// Ensure $page_content is defined
 $page_content = $page_content ?? '';
 ?>
 <!DOCTYPE html>
@@ -11,7 +12,6 @@ $page_content = $page_content ?? '';
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <?php include __DIR__ . '/header.php'; ?>
     <?php echo $page_content; ?>
     <?php include __DIR__ . '/footer.php'; ?>
 </body>
