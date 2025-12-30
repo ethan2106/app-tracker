@@ -1,59 +1,64 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Run PHP Server",
-            "type": "shell",
-            "command": "php",
-            "args": [
-                "-S",
-                "localhost:8000",
-                "-t",
-                "."
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            },
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "Check PHP Syntax",
-            "type": "shell",
-            "command": "php",
-            "args": [
-                "-l",
-                "${file}"
-            ],
-            "group": "test",
-            "presentation": {
-                "echo": true,
-                "reveal": "silent",
-                "focus": false,
-                "panel": "shared"
-            }
-        },
-        {
-            "label": "Run PHP Script",
-            "type": "shell",
-            "command": "php",
-            "args": [
-                "${file}"
-            ],
-            "group": "test",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            }
-        }
-    ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run PHP Server",
+			"type": "shell",
+			"command": "php",
+			"args": [
+				"-S",
+				"localhost:8000",
+				"-t",
+				"."
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			},
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check PHP Syntax",
+			"type": "shell",
+			"command": "php",
+			"args": [
+				"-l",
+				"${file}"
+			],
+			"group": "test",
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"focus": false,
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Run PHP Script",
+			"type": "shell",
+			"command": "php",
+			"args": [
+				"${file}"
+			],
+			"group": "test",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Install npm packages",
+			"type": "shell",
+			"command": "npm"
+		}
+	]
 }

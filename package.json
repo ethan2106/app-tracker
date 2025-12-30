@@ -1,0 +1,25 @@
+{
+  "name": "app-tracker",
+  "version": "1.0.0",
+  "description": "Un outil web simple et efficace pour suivre les mises à jour de vos applications Windows favorites. Détecte automatiquement les nouvelles versions et vous notifie quand des mises à jour sont disponibles.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethan2106/app-tracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ethan2106/app-tracker/issues"
+  },
+  "homepage": "https://github.com/ethan2106/app-tracker#readme",
+  "dependencies": {
+    "jquery": "^3.7.1",
+    "bootstrap": "^5.3.3"
+  }
+}
